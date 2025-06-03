@@ -30,7 +30,61 @@ const authorizeRole = (roles) => {
   };
 };
 
+const authorizePermission = (requiredPermissionName) => {
+  return (req, res, next) => {
+    if (!req.user || !req.user.role || !req.user.role.role_name) {
+      return res.status(403).json({ message: 'Forbidden: User or role information missing' });
+    }
+
+    if (req.user.role.role_name === 'Super Admin') {
+      return next();
+    }
+
+    if (!req.user.role.permissions || !Array.isArray(req.user.role.permissions)) {
+      console.warn(`Permissions not loaded for role: ${req.user.role.role_name} (User ID: ${req.user.id})`);
+      return res.status(403).json({ message: 'Forbidden: Permissions not available for role' });
+    }
+
+    const hasPermission = req.user.role.permissions.some((p) => p.name === requiredPermissionName);
+
+    if (hasPermission) {
+      next();
+    } else {
+      res.status(403).json({ message: `Forbidden: You do not have the '${requiredPermissionName}' permission` });
+    }
+  };
+};
+
+const authorizePermissionOrSelf = (permissionName, userIdParam = 'id') => {
+  return (req, res, next) => {
+    if (!req.user || !req.user.role || !req.user.role.role_name) {
+      return res.status(403).json({ message: 'Forbidden: User or role information missing' });
+    }
+
+    if (req.user.role.role_name === 'Super Admin') {
+      return next();
+    }
+
+    if (req.user.id === parseInt(req.params[userIdParam], 10)) {
+      return next();
+    }
+
+    if (!req.user.role.permissions || !Array.isArray(req.user.role.permissions)) {
+      return res.status(403).json({ message: 'Forbidden: Permissions not available for role' });
+    }
+
+    const hasPermission = req.user.role.permissions.some((p) => p.name === permissionName);
+    if (hasPermission) {
+      return next();
+    }
+
+    res.status(403).json({ message: `Forbidden: You do not have the '${permissionName}' permission or are not the owner of this resource.` });
+  };
+};
+
 module.exports = {
   authenticateJWT,
   authorizeRole,
+  authorizePermission,
+  authorizePermissionOrSelf,
 };

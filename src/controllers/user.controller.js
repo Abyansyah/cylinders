@@ -10,6 +10,18 @@ const createUser = async (req, res, next) => {
       return res.status(400).json({ message: `Role with ID ${role_id} not found.` });
     }
 
+    if (role.role_name === 'Super Admin') {
+      return res.status(400).json({ message: "Cannot create a user with the role 'Super Admin'. This role is reserved for system use." });
+    }
+
+    if (req?.user && req?.user?.role?.role_name === 'Admin' && role.role_name === 'Admin') {
+      return res.status(403).json({ message: 'Forbidden: Admin role cannot create another Admin.' });
+    }
+
+    if (req?.user && req?.user?.role?.role_name === 'Sales' && role.role_name !== 'Customer') {
+      return res.status(403).json({ message: 'Forbidden: Sales role can only create users with the Customer role.' });
+    }
+
     if (warehouse_id) {
       const warehouse = await Warehouse.findByPk(warehouse_id);
       if (!warehouse) {
@@ -46,17 +58,16 @@ const getAllUsers = async (req, res, next) => {
 
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
-
     const offset = (pageNum - 1) * limitNum;
 
-    let whereClause = {};
+    let mainWhereClause = {};
     if (search) {
-      whereClause = {
+      mainWhereClause = {
         [Op.or]: [{ name: { [Op.iLike]: `%${search}%` } }, { email: { [Op.iLike]: `%${search}%` } }, { username: { [Op.iLike]: `%${search}%` } }],
       };
     }
 
-    const includeRoleOptions = [
+    const includeClauses = [
       {
         model: Role,
         as: 'role',
@@ -66,19 +77,30 @@ const getAllUsers = async (req, res, next) => {
         model: Warehouse,
         as: 'warehouse',
         attributes: ['id', 'name', 'address'],
+        required: false,
       },
     ];
 
-    if (req?.user && req?.user?.role?.role_name === 'Sales') {
-      includeRoleOptions.where = { role_name: 'Customer' };
-    } else if (req?.user && req?.user?.role?.role_name === 'Distributor') {
-      includeRoleOptions.where = { role_name: 'Driver' };
+    const roleInclude = includeClauses.find((include) => include.model === Role && include.as === 'role');
+
+    if (req.user && req.user.role && roleInclude) {
+      const loggedInUserRole = req.user.role.role_name;
+      if (loggedInUserRole === 'Sales') {
+        roleInclude.where = { role_name: 'Customer' };
+        roleInclude.required = true;
+      } else if (loggedInUserRole === 'Distributor') {
+        roleInclude.where = { role_name: 'Driver' };
+        roleInclude.required = true;
+      } else if (loggedInUserRole === 'Admin') {
+        roleInclude.where = { role_name: { [Op.ne]: 'Super Admin' } };
+        roleInclude.required = true;
+      }
     }
 
     const { count, rows: data } = await User.findAndCountAll({
       attributes: { exclude: ['password'] },
-      include: includeRoleOptions,
-      where: whereClause,
+      include: includeClauses,
+      where: mainWhereClause,
       limit: limitNum,
       offset: offset,
       order: [['createdAt', 'DESC']],
@@ -107,6 +129,12 @@ const getUserById = async (req, res, next) => {
         { model: Warehouse, as: 'warehouse', attributes: ['id', 'name', 'address'] },
       ],
     });
+    if (req?.user && req?.user?.role?.role_name === 'Admin' && user?.role?.role_name === 'Super Admin') {
+      return res.status(403).json({ message: 'Forbidden: Cannot access Super Admin profile.' });
+    }
+    if (req?.user && req?.user?.role?.role_name === 'Sales' && user?.role?.role_name !== 'Customer') {
+      return res.status(403).json({ message: 'Forbidden: Sales role can only access Customer profiles.' });
+    }
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }

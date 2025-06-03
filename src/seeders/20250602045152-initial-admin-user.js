@@ -1,45 +1,28 @@
 'use strict';
 
 const bcrypt = require('bcryptjs');
-const { Role, User } = require('../models');
 
 module.exports = {
   async up(queryInterface, Sequelize) {
     try {
-      const adminRole = await queryInterface.rawSelect(
-        'roles',
-        {
-          where: {
-            role_name: 'Admin',
-          },
-        },
-        ['id']
-      );
+      const superAdminRoleName = 'Super Admin';
+      const superAdminUsername = 'superadmin';
 
-      if (!adminRole) {
-        console.error("Seeder Error: 'Admin' role not found. Please run the role seeder first or ensure the 'Admin' role exists.");
+      const superAdminRoleId = await queryInterface.rawSelect('roles', { where: { role_name: superAdminRoleName } }, ['id']);
 
+      if (!superAdminRoleId) {
+        console.error(`Seeder Error: '${superAdminRoleName}' role not found. Please run the role seeder first.`);
         return;
       }
 
-      const adminRoleId = adminRole;
-
-      const adminPassword = 'rahasia123';
+      const adminPassword = process.env.SUPER_ADMIN_PASSWORD || 'supersecret123';
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(adminPassword, salt);
 
-      const existingAdmin = await queryInterface.rawSelect(
-        'users',
-        {
-          where: {
-            username: 'admin',
-          },
-        },
-        ['id']
-      );
+      const existingSuperAdmin = await queryInterface.rawSelect('users', { where: { username: superAdminUsername } }, ['id']);
 
-      if (existingAdmin) {
-        console.log("Admin user 'admin' already exists. Seeder skipped.");
+      if (existingSuperAdmin) {
+        console.log(`User '${superAdminUsername}' already exists. Seeder skipped.`);
         return;
       }
 
@@ -47,13 +30,13 @@ module.exports = {
         'users',
         [
           {
-            username: 'admin',
+            username: superAdminUsername,
             password: hashedPassword,
-            name: 'Administrator',
-            email: 'admin@gmail.com',
-            phone_number: '081234567890',
-            address: 'Kantor Pusat',
-            role_id: adminRoleId,
+            name: 'Super Administrator',
+            email: 'superadmin@gmail.com',
+            phone_number: '080000000000',
+            address: 'Main HQ',
+            role_id: superAdminRoleId,
             is_active: true,
             createdAt: new Date(),
             updatedAt: new Date(),
@@ -62,24 +45,18 @@ module.exports = {
         {}
       );
 
-      console.log("Admin user 'admin' seeded successfully.");
+      console.log(`User '${superAdminUsername}' with role '${superAdminRoleName}' seeded successfully.`);
     } catch (error) {
-      console.error('Error seeding admin user:', error);
+      console.error('Error seeding super admin user:', error);
     }
   },
 
   async down(queryInterface, Sequelize) {
     try {
-      await queryInterface.bulkDelete(
-        'users',
-        {
-          username: 'admin',
-        },
-        {}
-      );
-      console.log("Admin user 'admin' removed.");
+      await queryInterface.bulkDelete('users', { username: 'superadmin' }, {});
+      console.log("User 'superadmin' removed.");
     } catch (error) {
-      console.error('Error removing admin user:', error);
+      console.error('Error removing super admin user:', error);
     }
   },
 };

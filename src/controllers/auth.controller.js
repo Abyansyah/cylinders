@@ -18,6 +18,10 @@ const register = async (req, res, next) => {
       }
     }
 
+    if (role_name === 'Super Admin') {
+      return res.status(400).json({ message: "Cannot register a user with the role 'Super Admin'. This role is reserved for system use." });
+    }
+
     let roleId;
     if (role_name) {
       const role = await Role.findOne({ where: { role_name } });

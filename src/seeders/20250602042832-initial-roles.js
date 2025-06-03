@@ -4,6 +4,7 @@
 module.exports = {
   async up(queryInterface, Sequelize) {
     const defaultRoles = [
+      { role_name: 'Super Admin', createdAt: new Date(), updatedAt: new Date() },
       { role_name: 'Admin', createdAt: new Date(), updatedAt: new Date() },
       { role_name: 'Sales', createdAt: new Date(), updatedAt: new Date() },
       { role_name: 'Petugas Gudang', createdAt: new Date(), updatedAt: new Date() },
@@ -30,7 +31,7 @@ module.exports = {
     await queryInterface.bulkDelete(
       'roles',
       {
-        role_name: ['Admin', 'Sales', 'Petugas Gudang', 'Distributor', 'Driver', 'Customer'],
+        role_name: ['Super Admin', 'Admin', 'Sales', 'Petugas Gudang', 'Distributor', 'Driver', 'Customer'],
       },
       {}
     );
