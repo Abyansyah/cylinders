@@ -8,7 +8,18 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'warehouse_id',
         as: 'users',
       });
-      // Warehouse.hasMany(models.CylinderStock, { foreignKey: 'warehouse_id', as: 'cylinderStocks' });
+      Warehouse.hasMany(models.Cylinder, {
+        foreignKey: 'warehouse_id',
+        as: 'cylindersInWarehouse',
+      });
+      Warehouse.hasMany(models.StockMovement, {
+        foreignKey: 'from_warehouse_id',
+        as: 'stockMovementsFrom',
+      });
+      Warehouse.hasMany(models.StockMovement, {
+        foreignKey: 'to_warehouse_id',
+        as: 'stockMovementsTo',
+      });
     }
   }
   Warehouse.init(

@@ -4,7 +4,10 @@ const userRoutes = require('./user.routes');
 const roleRoutes = require('./role.routes');
 const gasTypeRoutes = require('./gas_type.routes');
 const cylinderPropertyRoutes = require('./cylinder_property.routes');
+const permissionRoutes = require('./permission.routes');
 const warehouseRoutes = require('./warehouse.routes');
+const cylinderRoute = require('./cylinder.routes');
+const stockMovementRoutes = require('./stock_movement.routes');
 
 const router = express.Router();
 
@@ -13,7 +16,10 @@ router.use('/users', userRoutes);
 router.use('/roles', roleRoutes);
 router.use('/gas-types', gasTypeRoutes);
 router.use('/cylinder-properties', cylinderPropertyRoutes);
+router.use('/permissions', permissionRoutes);
 router.use('/warehouses', warehouseRoutes);
+router.use('/cylinders', cylinderRoute);
+router.use('/stock-movements', stockMovementRoutes);
 
 router.get('/', (req, res) => {
   res.send('API is running...');

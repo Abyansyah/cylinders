@@ -14,6 +14,10 @@ module.exports = (sequelize, DataTypes) => {
         as: 'warehouse',
         allowNull: true,
       });
+      User.hasMany(models.StockMovement, {
+        foreignKey: 'user_id',
+        as: 'stockMovementsByUser', 
+      });
     }
 
     async isValidPassword(password) {
