@@ -6,21 +6,42 @@ const cylinderStatuses = ['Di Gudang - Kosong', 'Di Gudang - Terisi', 'Dipinjam 
 const movementTypes = ['TERIMA_BARU', 'ISI_ULANG', 'PINDAH_GUDANG', 'KELUAR_PELANGGAN', 'KEMBALI_PELANGGAN', 'UPDATE_STATUS'];
 
 const createCylinderValidation = [
-  body('barcode_id')
+  body('barcode_ids')
+    .isArray({ min: 1, max: 50 })
+    .withMessage('barcode_ids must be a non-empty array with 1 to 50 items.'),
+
+  body('barcode_ids.*')
     .trim()
     .notEmpty()
-    .withMessage('Barcode ID is required.')
+    .withMessage('Each barcode ID in the array must not be empty.')
     .isString()
-    .withMessage('Barcode ID must be a string.')
+    .withMessage('Each barcode ID must be a string.')
     .isLength({ max: 100 })
-    .withMessage('Barcode ID must not exceed 100 characters.')
-    .custom(async (value) => {
-      const cylinder = await Cylinder.findOne({ where: { barcode_id: value } });
-      if (cylinder) {
-        return Promise.reject('Barcode ID already exists.');
-      }
-    }),
+    .withMessage('Each barcode ID must not exceed 100 characters.'),
+
+  body('barcode_ids').custom(async (value) => {
+    const uniqueBarcodeIds = new Set(value);
+    if (uniqueBarcodeIds.size !== value.length) {
+      return Promise.reject('Duplicate barcode_ids found in the request array.');
+    }
+
+    const existingCylinders = await Cylinder.findAll({
+      where: {
+        barcode_id: {
+          [Op.in]: value,
+        },
+      },
+      attributes: ['barcode_id'],
+    });
+
+    if (existingCylinders.length > 0) {
+      const existingIds = existingCylinders.map((c) => c.barcode_id).join(', ');
+      return Promise.reject(`The following barcode_ids already exist in the database: ${existingIds}`);
+    }
+  }),
+
   body('cylinder_properties_id').notEmpty().withMessage('Cylinder Property ID is required.').isInt({ gt: 0 }).withMessage('Cylinder Property ID must be a positive integer.'),
+
   body('warehouse_id')
     .optional()
     .isInt({ gt: 0 })
@@ -31,13 +52,16 @@ const createCylinderValidation = [
       }
       return true;
     }),
+
   body('status')
     .trim()
     .notEmpty()
     .withMessage('Status is required.')
     .isIn(cylinderStatuses)
     .withMessage(`Status must be one of: ${cylinderStatuses.join(', ')}`),
+
   body('manufacture_date').notEmpty().withMessage('Manufacture date is required.').isISO8601().toDate().withMessage('Manufacture date must be a valid date.'),
+
   body('gas_type_id')
     .optional({ checkFalsy: true })
     .isInt({ gt: 0 })
@@ -45,8 +69,11 @@ const createCylinderValidation = [
     .if(body('status').equals('Di Gudang - Terisi'))
     .notEmpty()
     .withMessage('Gas Type ID is required when status is "Di Gudang - Terisi".'),
+
   body('last_fill_date').optional({ checkFalsy: true }).isISO8601().toDate().withMessage('Last fill date must be a valid date.'),
+
   body('is_owned_by_customer').optional().isBoolean().withMessage('Is owned by customer must be a boolean.'),
+
   body('notes').optional().trim().isString(),
 ];
 

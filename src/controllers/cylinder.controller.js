@@ -20,12 +20,17 @@ const createStockMovementEntry = async (cylinder_id, user_id, movement_type, to_
 const createCylinder = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
-    const { barcode_id, cylinder_properties_id, gas_type_id, status, manufacture_date, last_fill_date, is_owned_by_customer = false, notes } = req.body;
+    const { barcode_ids, cylinder_properties_id, gas_type_id, status, manufacture_date, last_fill_date, is_owned_by_customer = false, notes } = req.body;
     let { warehouse_id } = req.body;
 
     const user_id = req.user.id;
     const userRole = req.user.role.role_name;
     const userWarehouseId = req.user.warehouse_id;
+
+    if (!Array.isArray(barcode_ids) || barcode_ids.length === 0) {
+      await t.rollback();
+      return res.status(400).json({ message: 'barcode_ids must be a non-empty array.' });
+    }
 
     if (userRole === 'Petugas Gudang') {
       if (!userWarehouseId) {
@@ -62,46 +67,61 @@ const createCylinder = async (req, res, next) => {
       }
     }
 
-    const newCylinder = await Cylinder.create(
-      {
-        barcode_id,
-        cylinder_properties_id,
-        gas_type_id: status === 'Di Gudang - Kosong' ? null : gas_type_id,
-        warehouse_id: targetWarehouse.id,
-        status,
-        manufacture_date,
-        last_fill_date: status === 'Di Gudang - Terisi' ? last_fill_date || new Date() : null,
-        is_owned_by_customer,
-        notes,
-      },
-      { transaction: t }
-    );
+    const createdCylinders = [];
+    for (const barcode_id of barcode_ids) {
+      const newCylinder = await Cylinder.create(
+        {
+          barcode_id,
+          cylinder_properties_id,
+          gas_type_id: status === 'Di Gudang - Kosong' ? null : gas_type_id,
+          warehouse_id: targetWarehouse.id,
+          status,
+          manufacture_date,
+          last_fill_date: status === 'Di Gudang - Terisi' ? last_fill_date || new Date() : null,
+          is_owned_by_customer,
+          notes,
+        },
+        { transaction: t }
+      );
 
-    await createStockMovementEntry(
-      newCylinder.id,
-      user_id,
-      movementTypes.find((mt) => mt === 'TERIMA_BARU'),
-      targetWarehouse.id,
-      `Tabung baru ${newCylinder.barcode_id} didaftarkan di gudang ${targetWarehouse.name} dengan status ${status}.`,
-      null,
-      t
-    );
+      await createStockMovementEntry(
+        newCylinder.id,
+        user_id,
+        movementTypes.find((mt) => mt === 'TERIMA_BARU'),
+        targetWarehouse.id,
+        `Tabung baru ${newCylinder.barcode_id} didaftarkan di gudang ${targetWarehouse.name} dengan status ${status}.`,
+        null,
+        t
+      );
+      createdCylinders.push(newCylinder);
+    }
 
     await t.commit();
-    const resultCylinder = await Cylinder.findByPk(newCylinder.id, {
+
+    const newCylinderIds = createdCylinders.map((c) => c.id);
+    const resultCylinders = await Cylinder.findAll({
+      where: {
+        id: {
+          [Op.in]: newCylinderIds,
+        },
+      },
       include: [
         { model: CylinderProperty, as: 'cylinderProperty' },
         { model: GasType, as: 'gasType' },
         { model: Warehouse, as: 'currentWarehouse' },
       ],
     });
-    res.status(201).json({ message: 'Cylinder registered successfully.' });
+
+    res.status(201).json({
+      message: `${createdCylinders.length} cylinders registered successfully.`,
+      data: resultCylinders,
+    });
   } catch (error) {
     if (t && !t.finished) {
       await t.rollback();
     }
     if (error.name === 'SequelizeValidationError' || error.name === 'SequelizeUniqueConstraintError') {
-      const errors = error.errors.map((err) => ({ field: err.path, message: err.message }));
+      const errors = error.errors.map((err) => ({ field: err.path, message: err.message, value: err.value }));
       return res.status(400).json({ message: 'Validation Error', errors });
     }
     next(error);

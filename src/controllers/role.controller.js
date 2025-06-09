@@ -268,7 +268,7 @@ const syncPermissionsForRole = async (req, res, next) => {
 
     res.status(200).json({
       message: `Permissions for role '${role.role_name}' synchronized successfully.`,
-      role: updatedRoleWithPermissions,
+      success: true,
     });
   } catch (error) {
     if (t.finished !== 'commit' && t.finished !== 'rollback') {

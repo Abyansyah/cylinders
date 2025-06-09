@@ -20,6 +20,11 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'to_warehouse_id',
         as: 'toWarehouse',
       });
+      StockMovement.belongsTo(models.Order, {
+        foreignKey: 'order_id',
+        as: 'order',
+        allowNull: true,
+      });
       // Future associations:
       // StockMovement.belongsTo(models.Customer, { foreignKey: 'from_customer_id', as: 'fromCustomer' });
       // StockMovement.belongsTo(models.Customer, { foreignKey: 'to_customer_id', as: 'toCustomer' });
@@ -51,7 +56,7 @@ module.exports = (sequelize, DataTypes) => {
           notNull: { msg: 'Movement type cannot be null.' },
           notEmpty: { msg: 'Movement type cannot be empty.' },
           isIn: {
-            args: [['TERIMA_BARU', 'ISI_ULANG', 'PINDAH_GUDANG', 'KELUAR_PELANGGAN', 'KEMBALI_PELANGGAN', 'UPDATE_STATUS']],
+            args: [['TERIMA_BARU', 'ISI_ULANG', 'PINDAH_GUDANG', 'KELUAR_PELANGGAN', 'DIALOKASIKAN_KE_ORDER', 'KEMBALI_PELANGGAN', 'UPDATE_STATUS']],
             msg: 'Invalid movement type.',
           },
         },
@@ -86,6 +91,7 @@ module.exports = (sequelize, DataTypes) => {
       order_id: {
         type: DataTypes.INTEGER,
         allowNull: true,
+        references: { model: 'orders', key: 'id' },
       },
     },
     {

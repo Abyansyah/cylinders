@@ -20,6 +20,20 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'cylinder_id',
         as: 'stockMovements',
       });
+      Cylinder.belongsTo(models.Customer, {
+        foreignKey: 'customer_id',
+        as: 'ownerCustomer',
+        allowNull: true,
+      });
+      Cylinder.belongsTo(models.OrderItem, {
+        foreignKey: 'current_order_item_id',
+        as: 'currentOrderItem',
+        allowNull: true,
+      });
+      Cylinder.hasMany(models.OrderItemAssignment, {
+        foreignKey: 'cylinder_id',
+        as: 'orderAssignments',
+      });
       // Future associations:
       // Cylinder.belongsTo(models.Customer, { foreignKey: 'customer_id', as: 'ownerCustomer' });
       // Cylinder.belongsTo(models.OrderItem, { foreignKey: 'current_order_item_id', as: 'currentOrderItem' });
@@ -72,7 +86,7 @@ module.exports = (sequelize, DataTypes) => {
           notNull: { msg: 'Status cannot be null.' },
           notEmpty: { msg: 'Status cannot be empty.' },
           isIn: {
-            args: [['Di Gudang - Kosong', 'Di Gudang - Terisi', 'Dipinjam Pelanggan', 'Perlu Inspeksi', 'Rusak', 'Hilang']],
+            args: [['Di Gudang - Kosong', 'Di Gudang - Terisi', 'Dipinjam Pelanggan', 'Dialokasikan Untuk Order', 'Siap Kirim', 'Perlu Inspeksi', 'Rusak', 'Hilang']],
             msg: 'Invalid cylinder status.',
           },
         },
@@ -104,10 +118,12 @@ module.exports = (sequelize, DataTypes) => {
       customer_id: {
         type: DataTypes.INTEGER,
         allowNull: true,
+        references: { model: 'customers', key: 'id' },
       },
       current_order_item_id: {
         type: DataTypes.INTEGER,
         allowNull: true,
+        references: { model: 'order_items', key: 'id' },
       },
     },
     {

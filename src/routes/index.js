@@ -8,6 +8,8 @@ const permissionRoutes = require('./permission.routes');
 const warehouseRoutes = require('./warehouse.routes');
 const cylinderRoute = require('./cylinder.routes');
 const stockMovementRoutes = require('./stock_movement.routes');
+const customerRoutes = require('./customer.routes');
+const orderRoutes = require('./order.routes');
 
 const router = express.Router();
 
@@ -20,6 +22,8 @@ router.use('/permissions', permissionRoutes);
 router.use('/warehouses', warehouseRoutes);
 router.use('/cylinders', cylinderRoute);
 router.use('/stock-movements', stockMovementRoutes);
+router.use('/customers', customerRoutes);
+router.use('/orders', orderRoutes);
 
 router.get('/', (req, res) => {
   res.send('API is running...');

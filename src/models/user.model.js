@@ -16,7 +16,15 @@ module.exports = (sequelize, DataTypes) => {
       });
       User.hasMany(models.StockMovement, {
         foreignKey: 'user_id',
-        as: 'stockMovementsByUser', 
+        as: 'stockMovementsByUser',
+      });
+      User.hasMany(models.Customer, {
+        foreignKey: 'created_by_user_id',
+        as: 'createdCustomers',
+      });
+      User.hasMany(models.Order, {
+        foreignKey: 'sales_user_id',
+        as: 'soldOrders',
       });
     }
 

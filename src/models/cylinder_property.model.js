@@ -12,6 +12,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'cylinder_properties_id',
         as: 'cylinders',
       });
+      CylinderProperty.hasMany(models.OrderItem, {
+        foreignKey: 'cylinder_properties_id',
+        as: 'orderItems',
+      });
     }
   }
   CylinderProperty.init(
