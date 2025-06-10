@@ -26,6 +26,18 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'sales_user_id',
         as: 'soldOrders',
       });
+      User.hasMany(models.Delivery, {
+        foreignKey: 'driver_user_id',
+        as: 'drives',
+      });
+      User.hasMany(models.Delivery, {
+        foreignKey: 'assigned_by_user_id',
+        as: 'assignedDeliveries',
+      });
+      User.hasMany(models.ReturnedCylinder, {
+        foreignKey: 'picked_up_by_driver_id',
+        as: 'pickedUpCylinders',
+      });
     }
 
     async isValidPassword(password) {

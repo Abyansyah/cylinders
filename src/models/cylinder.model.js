@@ -34,9 +34,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'cylinder_id',
         as: 'orderAssignments',
       });
-      // Future associations:
-      // Cylinder.belongsTo(models.Customer, { foreignKey: 'customer_id', as: 'ownerCustomer' });
-      // Cylinder.belongsTo(models.OrderItem, { foreignKey: 'current_order_item_id', as: 'currentOrderItem' });
+      Cylinder.hasMany(models.ReturnedCylinder, {
+        foreignKey: 'cylinder_id',
+        as: 'returns',
+      });
     }
   }
   Cylinder.init(
@@ -73,11 +74,8 @@ module.exports = (sequelize, DataTypes) => {
       },
       warehouse_id: {
         type: DataTypes.INTEGER,
-        allowNull: false,
+        allowNull: true,
         references: { model: 'warehouses', key: 'id' },
-        validate: {
-          notNull: { msg: 'Warehouse ID cannot be null.' },
-        },
       },
       status: {
         type: DataTypes.STRING(50),
@@ -86,7 +84,22 @@ module.exports = (sequelize, DataTypes) => {
           notNull: { msg: 'Status cannot be null.' },
           notEmpty: { msg: 'Status cannot be empty.' },
           isIn: {
-            args: [['Di Gudang - Kosong', 'Di Gudang - Terisi', 'Dipinjam Pelanggan', 'Dialokasikan Untuk Order', 'Siap Kirim', 'Perlu Inspeksi', 'Rusak', 'Hilang']],
+            args: [
+              [
+                'Di Gudang - Kosong',
+                'Di Gudang - Terisi',
+                'Dipinjam Pelanggan',
+                'Dialokasikan Untuk Order',
+                'Siap Kirim',
+                'Dalam Pengiriman',
+                'Di Customer - Sewa',
+                'Di Customer - Beli',
+                'Dalam Perjalanan Kembali ke Gudang',
+                'Perlu Inspeksi',
+                'Rusak',
+                'Hilang',
+              ],
+            ],
             msg: 'Invalid cylinder status.',
           },
         },

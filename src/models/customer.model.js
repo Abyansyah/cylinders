@@ -20,6 +20,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'user_id',
         as: 'userAccount',
       });
+      Customer.hasMany(models.ReturnedCylinder, {
+        foreignKey: 'picked_up_from_customer_id',
+        as: 'returnedCylindersFrom',
+      });
     }
   }
   Customer.init(

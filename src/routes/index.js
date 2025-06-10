@@ -10,6 +10,8 @@ const cylinderRoute = require('./cylinder.routes');
 const stockMovementRoutes = require('./stock_movement.routes');
 const customerRoutes = require('./customer.routes');
 const orderRoutes = require('./order.routes');
+const deliveryRoutes = require('./delivery.routes');
+const returnedCylinderRoutes = require('./returned_cylinder.routes');
 
 const router = express.Router();
 
@@ -24,6 +26,8 @@ router.use('/cylinders', cylinderRoute);
 router.use('/stock-movements', stockMovementRoutes);
 router.use('/customers', customerRoutes);
 router.use('/orders', orderRoutes);
+router.use('/deliveries', deliveryRoutes);
+router.use('/returns', returnedCylinderRoutes);
 
 router.get('/', (req, res) => {
   res.send('API is running...');

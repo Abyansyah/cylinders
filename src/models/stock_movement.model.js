@@ -25,10 +25,14 @@ module.exports = (sequelize, DataTypes) => {
         as: 'order',
         allowNull: true,
       });
-      // Future associations:
-      // StockMovement.belongsTo(models.Customer, { foreignKey: 'from_customer_id', as: 'fromCustomer' });
-      // StockMovement.belongsTo(models.Customer, { foreignKey: 'to_customer_id', as: 'toCustomer' });
-      // StockMovement.belongsTo(models.Order, { foreignKey: 'order_id', as: 'order' });
+      StockMovement.belongsTo(models.Customer, {
+        foreignKey: 'from_customer_id',
+        as: 'fromCustomer',
+      });
+      StockMovement.belongsTo(models.Customer, {
+        foreignKey: 'to_customer_id',
+        as: 'toCustomer',
+      });
     }
   }
   StockMovement.init(
@@ -56,7 +60,7 @@ module.exports = (sequelize, DataTypes) => {
           notNull: { msg: 'Movement type cannot be null.' },
           notEmpty: { msg: 'Movement type cannot be empty.' },
           isIn: {
-            args: [['TERIMA_BARU', 'ISI_ULANG', 'PINDAH_GUDANG', 'KELUAR_PELANGGAN', 'DIALOKASIKAN_KE_ORDER', 'KEMBALI_PELANGGAN', 'UPDATE_STATUS']],
+            args: [['TERIMA_BARU', 'ISI_ULANG', 'PINDAH_GUDANG', 'KELUAR_PELANGGAN', 'DIALOKASIKAN_KE_ORDER', 'KELUAR_UNTUK_PENGIRIMAN', 'DISERAHKAN_KE_CUSTOMER', 'DIAMBIL_DARI_CUSTOMER', 'DITERIMA_DI_GUDANG', 'KEMBALI_PELANGGAN', 'UPDATE_STATUS']],
             msg: 'Invalid movement type.',
           },
         },
@@ -83,10 +87,12 @@ module.exports = (sequelize, DataTypes) => {
       from_customer_id: {
         type: DataTypes.INTEGER,
         allowNull: true,
+        references: { model: 'customers', key: 'id' },
       },
       to_customer_id: {
         type: DataTypes.INTEGER,
         allowNull: true,
+        references: { model: 'customers', key: 'id' },
       },
       order_id: {
         type: DataTypes.INTEGER,

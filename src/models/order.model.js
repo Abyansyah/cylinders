@@ -24,6 +24,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'order_id',
         as: 'stockMovements',
       });
+      Order.hasOne(models.Delivery, {
+        foreignKey: 'order_id',
+        as: 'delivery',
+      });
     }
   }
   Order.init(
@@ -82,7 +86,7 @@ module.exports = (sequelize, DataTypes) => {
         validate: {
           notNull: { msg: 'Order status cannot be null.' },
           isIn: {
-            args: [['Baru', 'Dikonfirmasi Sales', 'Dibatalkan Sales', 'Disiapkan Gudang', 'Siap Kirim', 'Dikirim', 'Selesai', 'Dibatalkan Sistem']],
+            args: [['Baru', 'Dikonfirmasi Sales', 'Dibatalkan Sales', 'Disiapkan Gudang', 'Dalam Proses Pengiriman', 'Siap Kirim', 'Dikirim', 'Selesai', 'Dibatalkan Sistem']],
             msg: 'Invalid order status.',
           },
         },
