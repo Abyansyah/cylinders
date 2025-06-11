@@ -12,6 +12,7 @@ const customerRoutes = require('./customer.routes');
 const orderRoutes = require('./order.routes');
 const deliveryRoutes = require('./delivery.routes');
 const returnedCylinderRoutes = require('./returned_cylinder.routes');
+const reportRoutes = require('./report.routes');
 
 const router = express.Router();
 
@@ -28,6 +29,7 @@ router.use('/customers', customerRoutes);
 router.use('/orders', orderRoutes);
 router.use('/deliveries', deliveryRoutes);
 router.use('/returns', returnedCylinderRoutes);
+router.use('/reports', reportRoutes);
 
 router.get('/', (req, res) => {
   res.send('API is running...');

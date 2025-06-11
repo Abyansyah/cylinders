@@ -97,7 +97,7 @@ module.exports = (sequelize, DataTypes) => {
                 'Dalam Perjalanan Kembali ke Gudang',
                 'Perlu Inspeksi',
                 'Rusak',
-                'Hilang',
+                'Tidak Aktif',
               ],
             ],
             msg: 'Invalid cylinder status.',
