@@ -46,11 +46,11 @@ module.exports = {
       },
       unit_price: {
         type: Sequelize.DECIMAL(12, 2),
-        allowNull: false,
+        allowNull: true,
       },
       sub_total: {
         type: Sequelize.DECIMAL(15, 2),
-        allowNull: false,
+        allowNull: true,
       },
       is_rental: {
         type: Sequelize.BOOLEAN,

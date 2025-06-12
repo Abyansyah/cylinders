@@ -6,8 +6,6 @@ const canViewUserProfile = async (req, res, next) => {
     const loggedInUserId = req?.user?.id;
     const targetUserId = parseInt(req.params.id);
 
-    console.log('ssss' + loggedInUserId);
-
     if (loggedInUserRole === 'Admin') {
       return next();
     }

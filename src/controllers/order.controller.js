@@ -1,5 +1,6 @@
-const { Order, OrderItem, OrderItemAssignment, Customer, User, Cylinder, CylinderProperty, GasType, StockMovement, Warehouse, sequelize } = require('../models');
+const { Order, OrderItem, OrderItemAssignment, Customer, User, Cylinder, CylinderProperty, GasType, StockMovement, Warehouse, Product, sequelize } = require('../models');
 const { Op, literal } = require('sequelize');
+const { updateOrderStatus } = require('../helpers/order.helper');
 
 const generateOrderNumber = async () => {
   const date = new Date();
@@ -40,25 +41,17 @@ const createOrder = async (req, res, next) => {
       return res.status(400).json({ message: `Warehouse with ID ${assigned_warehouse_id} not found.` });
     }
 
-    if (req.user.role.role_name === 'Sales' && customer.created_by_user_id !== sales_user_id) {
-      await t.rollback();
-      return res.status(403).json({ message: 'Forbidden: You can only create orders for customers you manage.' });
-    }
-
-    let total_amount = 0;
+    // let total_amount = 0;
     const orderItemsData = [];
 
     for (const item of items) {
-      const cylinderProperty = await CylinderProperty.findByPk(item.cylinder_properties_id, { transaction: t });
-      const gasType = await GasType.findByPk(item.gas_type_id, { transaction: t });
-
-      if (!cylinderProperty || !gasType) {
-        await t.rollback();
-        return res.status(400).json({ message: 'Invalid cylinder property or gas type in items.' });
+      const product = await Product.findByPk(item.product_id, { transaction: t });
+      if (!product || !product.is_active) {
+        throw new Error(`Product with ID ${item.product_id} is not valid or inactive.`);
       }
-      const sub_total = item.quantity * item.unit_price;
-      total_amount += sub_total;
-      orderItemsData.push({ ...item, sub_total });
+      // const sub_total = item.quantity * item.unit_price;
+      // total_amount += sub_total;
+      orderItemsData.push({ ...item, unit: item.unit || product.unit });
     }
 
     const order_number = await generateOrderNumber();
@@ -73,7 +66,7 @@ const createOrder = async (req, res, next) => {
         order_type,
         status: 'Dikonfirmasi Sales',
         shipping_address: shipping_address || customer.shipping_address_default,
-        total_amount,
+        // total_amount,
         notes_customer,
         notes_internal,
       },
@@ -85,29 +78,18 @@ const createOrder = async (req, res, next) => {
         {
           order_id: newOrder.id,
           ...itemData,
+          rental_start_date: null,
+          rental_end_date: null,
         },
         { transaction: t }
       );
     }
 
+    await updateOrderStatus(newOrder.id, 'Dikonfirmasi Sales', sales_user_id, 'Order dibuat oleh sales.', t);
+
     await t.commit();
 
-    const resultOrder = await Order.findByPk(newOrder.id, {
-      include: [
-        { model: Customer, as: 'customer' },
-        { model: User, as: 'salesUser', attributes: ['id', 'name'] },
-        {
-          model: OrderItem,
-          as: 'items',
-          include: [
-            { model: CylinderProperty, as: 'cylinderProperty' },
-            { model: GasType, as: 'gasType' },
-          ],
-        },
-      ],
-    });
-
-    res.status(201).json({ message: 'Order created successfully', order: resultOrder });
+    res.status(201).json({ message: 'Order created successfully', success: true });
   } catch (error) {
     if (t.finished !== 'commit' && t.finished !== 'rollback') await t.rollback();
     if (error.name === 'SequelizeValidationError' || error.name === 'SequelizeUniqueConstraintError') {
@@ -129,7 +111,6 @@ const getAllOrders = async (req, res, next) => {
     if (status) whereClause.status = status;
     if (customer_id) whereClause.customer_id = customer_id;
     if (order_number_search) whereClause.order_number = { [Op.iLike]: `%${order_number_search}%` };
-
     if (date_start && date_end) {
       whereClause.order_date = { [Op.between]: [new Date(date_start), new Date(date_end + 'T23:59:59.999Z')] };
     } else if (date_start) {
@@ -138,16 +119,22 @@ const getAllOrders = async (req, res, next) => {
       whereClause.order_date = { [Op.lte]: new Date(date_end + 'T23:59:59.999Z') };
     }
 
-    if (req.user.role.role_name === 'Sales') {
-      whereClause.sales_user_id = req.user.id;
-    }
-
     const { count, rows: orders } = await Order.findAndCountAll({
       where: whereClause,
       include: [
         { model: Customer, as: 'customer', attributes: ['id', 'customer_name', 'company_name'] },
         { model: User, as: 'salesUser', attributes: ['id', 'name'] },
-        { model: OrderItem, as: 'items', attributes: ['id', 'quantity', 'unit_price', 'sub_total'] },
+        {
+          model: OrderItem,
+          as: 'items',
+          include: [
+            {
+              model: Product,
+              as: 'product',
+              attributes: ['id', 'name', 'sku'],
+            },
+          ],
+        },
       ],
       limit: limitNum,
       offset: offset,
@@ -155,12 +142,7 @@ const getAllOrders = async (req, res, next) => {
       distinct: true,
     });
 
-    res.status(200).json({
-      data: orders,
-      totalItems: count,
-      totalPages: Math.ceil(count / limitNum),
-      currentPage: pageNum,
-    });
+    res.status(200).json({ data: orders, totalItems: count, totalPages: Math.ceil(count / limitNum), currentPage: pageNum });
   } catch (error) {
     next(error);
   }
@@ -171,10 +153,6 @@ const getOrderById = async (req, res, next) => {
     const { id } = req.params;
     let whereClause = { id };
 
-    if (req.user.role.role_name === 'Sales') {
-      whereClause.sales_user_id = req.user.id;
-    }
-
     const order = await Order.findOne({
       where: whereClause,
       include: [
@@ -184,13 +162,15 @@ const getOrderById = async (req, res, next) => {
           model: OrderItem,
           as: 'items',
           include: [
-            { model: CylinderProperty, as: 'cylinderProperty' },
-            { model: GasType, as: 'gasType' },
             {
-              model: OrderItemAssignment,
-              as: 'assignments',
-              include: [{ model: Cylinder, as: 'cylinder', attributes: ['id', 'barcode_id', 'status'] }],
+              model: Product,
+              as: 'product',
+              include: [
+                { model: CylinderProperty, as: 'cylinderProperty' },
+                { model: GasType, as: 'gasType' },
+              ],
             },
+            { model: OrderItemAssignment, as: 'assignments', include: [{ model: Cylinder, as: 'cylinder', attributes: ['id', 'barcode_id', 'status'] }] },
           ],
         },
       ],
@@ -205,7 +185,7 @@ const getOrderById = async (req, res, next) => {
   }
 };
 
-const updateOrderStatus = async (req, res, next) => {
+const updateOrderStatuses = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -321,10 +301,7 @@ const getOrdersToPrepare = async (req, res, next) => {
     const limitNum = parseInt(limit, 10);
     const offset = (pageNum - 1) * limitNum;
 
-    let whereClause = {
-      status: 'Dikonfirmasi Sales',
-    };
-
+    let whereClause = { status: 'Dikonfirmasi Sales' };
     if (req.user.role.role_name === 'Petugas Gudang') {
       if (!req.user.warehouse_id) {
         return res.status(200).json({ data: [], totalItems: 0, totalPages: 0, currentPage: 1 });
@@ -341,8 +318,7 @@ const getOrdersToPrepare = async (req, res, next) => {
           model: OrderItem,
           as: 'items',
           include: [
-            { model: CylinderProperty, as: 'cylinderProperty', attributes: ['id', 'name'] },
-            { model: GasType, as: 'gasType', attributes: ['id', 'name'] },
+            { model: Product, as: 'product', attributes: ['id', 'name', 'sku', 'cylinder_properties_id', 'gas_type_id'] },
             { model: OrderItemAssignment, as: 'assignments', attributes: ['id', 'cylinder_id'] },
           ],
         },
@@ -353,12 +329,7 @@ const getOrdersToPrepare = async (req, res, next) => {
       distinct: true,
     });
 
-    res.status(200).json({
-      data: orders,
-      totalItems: count,
-      totalPages: Math.ceil(count / limitNum),
-      currentPage: pageNum,
-    });
+    res.status(200).json({ data: orders, totalItems: count, totalPages: Math.ceil(count / limitNum), currentPage: pageNum });
   } catch (error) {
     next(error);
   }
@@ -366,20 +337,22 @@ const getOrdersToPrepare = async (req, res, next) => {
 
 const recommendCylinders = async (req, res, next) => {
   try {
-    const { order_id, item_id } = req.params;
+    const { item_id } = req.params;
     const userWarehouseId = req.user.warehouse_id;
-
     if (req.user.role.role_name === 'Petugas Gudang' && !userWarehouseId) {
       return res.status(403).json({ message: 'Forbidden: Anda tidak ditugaskan ke gudang manapun.' });
     }
 
     const orderItem = await OrderItem.findOne({
-      where: { id: item_id, order_id: order_id },
-      include: [{ model: CylinderProperty, as: 'cylinderProperty' }],
+      where: { id: item_id },
+      include: [{ model: Product, as: 'product', include: [{ model: CylinderProperty, as: 'cylinderProperty' }] }],
     });
 
     if (!orderItem) {
       return res.status(404).json({ message: 'Order item not found.' });
+    }
+    if (!orderItem.product || !orderItem.product.cylinderProperty) {
+      return res.status(400).json({ message: 'Product associated with this item does not have cylinder specifications.' });
     }
 
     const alreadyAssignedCount = await OrderItemAssignment.count({ where: { order_item_id: item_id } });
@@ -388,18 +361,16 @@ const recommendCylinders = async (req, res, next) => {
     }
 
     const maxAgeDate = new Date();
-    maxAgeDate.setFullYear(maxAgeDate.getFullYear() - orderItem.cylinderProperty.max_age_years);
+    maxAgeDate.setFullYear(maxAgeDate.getFullYear() - orderItem.product.cylinderProperty.max_age_years);
 
     const recommendedCylinders = await Cylinder.findAll({
       where: {
-        cylinder_properties_id: orderItem.cylinder_properties_id,
-        gas_type_id: orderItem.gas_type_id,
+        cylinder_properties_id: orderItem.product.cylinder_properties_id,
+        gas_type_id: orderItem.product.gas_type_id,
         status: 'Di Gudang - Terisi',
         warehouse_id: userWarehouseId,
         manufacture_date: { [Op.gte]: maxAgeDate.toISOString().split('T')[0] },
-        id: {
-          [Op.notIn]: literal(`(SELECT cylinder_id FROM order_item_assignments WHERE status != 'Selesai Rental' AND status != 'Dikembalikan Gudang')`),
-        },
+        id: { [Op.notIn]: literal(`(SELECT cylinder_id FROM order_item_assignments WHERE status != 'Selesai Rental' AND status != 'Dikembalikan Gudang')`) },
       },
       attributes: ['id', 'barcode_id', 'manufacture_date', 'last_fill_date'],
       order: [
@@ -412,7 +383,6 @@ const recommendCylinders = async (req, res, next) => {
     if (recommendedCylinders.length === 0) {
       return res.status(404).json({ message: 'No suitable cylinders available in your warehouse for this item.' });
     }
-
     res.status(200).json(recommendedCylinders);
   } catch (error) {
     next(error);
@@ -518,13 +488,24 @@ const assignAllCylindersToOrder = async (req, res, next) => {
     const userWarehouseId = req.user.warehouse_id;
 
     const order = await Order.findByPk(order_id, {
-      include: [{ model: OrderItem, as: 'items' }],
+      include: [
+        {
+          model: OrderItem,
+          as: 'items',
+          include: [{ model: Product, as: 'product' }],
+        },
+      ],
       transaction: t,
     });
 
     if (!order) {
       await t.rollback();
       return res.status(404).json({ message: 'Order not found.' });
+    }
+
+    if (order.status !== 'Dikonfirmasi Sales') {
+      await t.rollback();
+      return res.status(400).json({ message: `Order status is '${order.status}', cannot assign cylinders.` });
     }
 
     const orderItemsMap = new Map(order.items.map((item) => [item.id, item]));
@@ -564,8 +545,8 @@ const assignAllCylindersToOrder = async (req, res, next) => {
       const orderItem = orderItemsMap.get(assignment.order_item_id);
       for (const barcode of assignment.barcode_ids) {
         const cylinder = cylindersMap.get(barcode);
-        if (cylinder.cylinder_properties_id !== orderItem.cylinder_properties_id) throw new Error(`Barcode '${barcode}': Jenis tabung tidak cocok.`);
-        if (cylinder.gas_type_id !== orderItem.gas_type_id) throw new Error(`Barcode '${barcode}': Jenis gas tidak cocok.`);
+        if (cylinder.cylinder_properties_id !== orderItem.product.cylinder_properties_id) throw new Error(`Barcode '${barcode}': Jenis tabung tidak cocok.`);
+        if (cylinder.gas_type_id !== orderItem.product.gas_type_id) throw new Error(`Barcode '${barcode}': Jenis gas tidak cocok.`);
         if (cylinder.warehouse_id !== userWarehouseId) throw new Error(`Barcode '${barcode}': Tidak berada di gudang Anda.`);
         if (cylinder.status !== 'Di Gudang - Terisi') throw new Error(`Barcode '${barcode}': Status tidak tersedia.`);
       }
@@ -607,6 +588,9 @@ const assignAllCylindersToOrder = async (req, res, next) => {
       await order.save({ transaction: t });
     }
 
+    const noteForHistory = notes_petugas_gudang ? `Semua tabung dialokasikan. Catatan: ${notes_petugas_gudang}` : 'Semua tabung untuk order telah dialokasikan oleh gudang.';
+    await updateOrderStatus(order.id, 'Disiapkan Gudang', user_id, noteForHistory, t);
+
     await t.commit();
     res.status(201).json({ message: `Successfully assigned ${allBarcodes.length} cylinders across ${assignments.length} items for order ${order.order_number}.` });
   } catch (error) {
@@ -619,7 +603,7 @@ const markOrderPrepared = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
     const { order_id } = req.params;
-
+    const user_id = req.user.id;
     const order = await Order.findByPk(order_id, {
       include: [
         {
@@ -675,20 +659,11 @@ const markOrderPrepared = async (req, res, next) => {
     order.status = 'Siap Kirim';
     await order.save({ transaction: t });
 
+    await updateOrderStatus(order.id, 'Siap Kirim', user_id, 'Order telah dikonfirmasi siap kirim oleh gudang.', t);
+
     await t.commit();
 
-    const finalOrder = await Order.findByPk(order_id, {
-      include: [
-        { model: Warehouse, as: 'assignedWarehouse' },
-        {
-          model: OrderItem,
-          as: 'items',
-          include: [{ model: OrderItemAssignment, as: 'assignments', include: [{ model: Cylinder, as: 'cylinder', attributes: ['id', 'barcode_id', 'status'] }] }],
-        },
-      ],
-    });
-
-    res.status(200).json({ message: 'Order marked as "Siap Kirim" successfully. All related statuses have been updated.', order: finalOrder });
+    res.status(200).json({ message: 'Order marked as "Siap Kirim" successfully. All related statuses have been updated.', success: true });
   } catch (error) {
     if (t.finished !== 'commit' && t.finished !== 'rollback') await t.rollback();
     next(error);
@@ -701,41 +676,115 @@ const validateCylindersForOrderItem = async (req, res, next) => {
     const { barcode_ids } = req.body;
     const userWarehouseId = req.user.warehouse_id;
 
-    const orderItem = await OrderItem.findByPk(item_id);
-    if (!orderItem) {
-      return res.status(404).json({ message: 'Order item not found.' });
+    const orderItem = await OrderItem.findByPk(item_id, { include: [{ model: Product, as: 'product' }] });
+    if (!orderItem || !orderItem.product) {
+      return res.status(404).json({ message: 'Order item or associated product not found.' });
     }
 
     const validationResults = [];
-
     for (const barcode of barcode_ids) {
       const cylinder = await Cylinder.findOne({ where: { barcode_id: barcode } });
       let result = { barcode, isValid: false, reason: '' };
-
       if (!cylinder) {
-        result.reason = 'Barcode tidak ditemukan di sistem.';
-      } else if (cylinder.cylinder_properties_id !== orderItem.cylinder_properties_id) {
-        result.reason = `Jenis tabung tidak cocok. Dibutuhkan ID Properti: ${orderItem.cylinder_properties_id}, tabung ini memiliki ID: ${cylinder.cylinder_properties_id}.`;
-      } else if (cylinder.gas_type_id !== orderItem.gas_type_id) {
-        result.reason = `Jenis gas tidak cocok. Dibutuhkan ID Gas: ${orderItem.gas_type_id}, tabung ini memiliki ID: ${cylinder.gas_type_id}.`;
+        result.reason = 'Barcode tidak ditemukan.';
+      } else if (cylinder.cylinder_properties_id !== orderItem.product.cylinder_properties_id) {
+        result.reason = `Jenis tabung tidak cocok.`;
+      } else if (cylinder.gas_type_id !== orderItem.product.gas_type_id) {
+        result.reason = `Jenis gas tidak cocok.`;
       } else if (cylinder.warehouse_id !== userWarehouseId) {
         result.reason = 'Tabung tidak berada di gudang Anda.';
       } else if (cylinder.status !== 'Di Gudang - Terisi') {
-        result.reason = `Status tabung saat ini adalah '${cylinder.status}', bukan 'Di Gudang - Terisi'.`;
+        result.reason = `Status tabung adalah '${cylinder.status}'.`;
       } else if (cylinder.current_order_item_id) {
-        result.reason = `Tabung sudah dialokasikan untuk order item lain (ID: ${cylinder.current_order_item_id}).`;
+        result.reason = `Tabung sudah dialokasikan untuk order lain.`;
       } else {
         result.isValid = true;
         result.reason = 'Cocok dan tersedia.';
       }
       validationResults.push(result);
     }
-
-    res.status(200).json({
-      message: 'Validation check complete.',
-      results: validationResults,
-    });
+    res.status(200).json({ message: 'Validation check complete.', results: validationResults });
   } catch (error) {
+    next(error);
+  }
+};
+
+const getOrderHistory = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const history = await OrderStatusHistory.findAll({
+      where: { order_id: id },
+      include: [{ model: User, as: 'user', attributes: ['id', 'name'] }],
+      order: [['timestamp', 'ASC']],
+    });
+    res.status(200).json(history);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const cancelOrder = async (req, res, next) => {
+  const t = await sequelize.transaction();
+  try {
+    const orderId = req.params.id;
+    const { notes } = req.body;
+    const userId = req.user.id;
+
+    const order = await Order.findByPk(orderId, {
+      include: [{ model: OrderItem, as: 'items', attributes: ['id'] }],
+      transaction: t,
+    });
+
+    if (!order) {
+      await t.rollback();
+      return res.status(404).json({ message: 'Order not found.' });
+    }
+
+    const cancellableStatuses = ['Baru', 'Dikonfirmasi Sales', 'Disiapkan Gudang', 'Siap Kirim', 'Dalam Proses Pengiriman'];
+    if (!cancellableStatuses.includes(order.status)) {
+      await t.rollback();
+      return res.status(400).json({ message: `Cannot cancel order with current status: '${order.status}'.` });
+    }
+
+    const orderItemIds = order.items.map((item) => item.id);
+    if (orderItemIds.length > 0) {
+      const assignments = await OrderItemAssignment.findAll({
+        where: { order_item_id: { [Op.in]: orderItemIds } },
+        transaction: t,
+      });
+
+      if (assignments.length > 0) {
+        const cylinderIdsToRelease = assignments.map((a) => a.cylinder_id);
+
+        await Cylinder.update(
+          {
+            status: 'Di Gudang - Terisi',
+            current_order_item_id: null,
+          },
+          {
+            where: { id: { [Op.in]: cylinderIdsToRelease } },
+            transaction: t,
+          }
+        );
+
+        const assignmentIdsToDelete = assignments.map((a) => a.id);
+        await OrderItemAssignment.destroy({
+          where: { id: { [Op.in]: assignmentIdsToDelete } },
+          transaction: t,
+        });
+      }
+    }
+
+    const finalNotes = `Pesanan dibatalkan oleh user. Catatan: ${notes || 'Tidak ada catatan.'}`;
+    await updateOrderStatus(orderId, 'Dibatalkan Sales', userId, finalNotes, t);
+
+    await t.commit();
+
+    res.status(200).json({ message: 'Order has been successfully cancelled.' });
+  } catch (error) {
+    if (t.finished !== 'commit' && t.finished !== 'rollback') {
+      await t.rollback();
+    }
     next(error);
   }
 };
@@ -744,7 +793,7 @@ module.exports = {
   createOrder,
   getAllOrders,
   getOrderById,
-  updateOrderStatus,
+  updateOrderStatuses,
   getOrdersToPrepare,
   recommendCylinders,
   assignCylinderToOrderItem,
@@ -752,4 +801,6 @@ module.exports = {
   reassignWarehouse,
   validateCylindersForOrderItem,
   assignAllCylindersToOrder,
+  getOrderHistory,
+  cancelOrder,
 };

@@ -29,6 +29,11 @@ module.exports = (sequelize, DataTypes) => {
         autoIncrement: true,
         allowNull: false,
       },
+      surat_jalan_number: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        unique: true,
+      },
       order_id: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -44,6 +49,15 @@ module.exports = (sequelize, DataTypes) => {
       vehicle_number: {
         type: DataTypes.STRING(20),
         allowNull: true,
+      },
+      shipping_method: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+      },
+      tracking_number: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        unique: true,
       },
       status: {
         type: DataTypes.STRING(50),

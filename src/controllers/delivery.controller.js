@@ -1,6 +1,8 @@
 'use strict';
 const { Delivery, Order, OrderItem, OrderItemAssignment, Cylinder, StockMovement, User, Customer, sequelize, Role } = require('../models');
-const { Op } = require('sequelize');
+const { Op, json } = require('sequelize');
+const { generateSuratJalanNumber, generateTrackingNumber } = require('../helpers/delivery.helper');
+const { updateOrderStatus } = require('../helpers/order.helper');
 
 const getOrdersReadyForDelivery = async (req, res, next) => {
   try {
@@ -29,7 +31,7 @@ const getOrdersReadyForDelivery = async (req, res, next) => {
 const createDelivery = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
-    const { order_id, driver_user_id, vehicle_number } = req.body;
+    const { order_id, driver_user_id, vehicle_number, shipping_method } = req.body;
     const assigned_by_user_id = req.user.id;
 
     const order = await Order.findByPk(order_id, { transaction: t });
@@ -48,6 +50,9 @@ const createDelivery = async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid user ID or user is not a Driver.' });
     }
 
+    const surat_jalan_number = await generateSuratJalanNumber();
+    const tracking_number = generateTrackingNumber();
+
     const delivery = await Delivery.create(
       {
         order_id,
@@ -55,12 +60,15 @@ const createDelivery = async (req, res, next) => {
         assigned_by_user_id,
         vehicle_number,
         status: 'Menunggu Pickup',
+        shipping_method,
+        surat_jalan_number,
+        tracking_number,
       },
       { transaction: t }
     );
 
-    order.status = 'Dalam Proses Pengiriman';
     await order.save({ transaction: t });
+    await updateOrderStatus(order_id, 'Menugaskan Driver', req.user.id, `Driver ${driver.name} ditugaskan.`, t);
 
     await t.commit();
     res.status(201).json({ message: 'Delivery created successfully.', delivery });
@@ -94,6 +102,9 @@ const pickupFromWarehouse = async (req, res, next) => {
     const driver_user_id = req.user.id;
 
     const delivery = await Delivery.findOne({ where: { id, driver_user_id }, transaction: t });
+    console.log('delivery', delivery);
+    
+
     if (!delivery) {
       await t.rollback();
       return res.status(404).json({ message: 'Delivery not found or you are not authorized.' });
@@ -109,6 +120,12 @@ const pickupFromWarehouse = async (req, res, next) => {
     });
     const cylinderIds = assignments.map((a) => a.cylinder_id);
 
+    const assignmentIds = assignments.map((a) => a.id);
+
+    if (assignmentIds.length > 0) {
+      await OrderItemAssignment.update({ status: 'Dikirim' }, { where: { id: { [Op.in]: assignmentIds } }, transaction: t });
+    }
+
     await Cylinder.update({ status: 'Dalam Pengiriman' }, { where: { id: { [Op.in]: cylinderIds } }, transaction: t });
 
     const stockMovements = cylinderIds.map((cylinder_id) => ({
@@ -119,6 +136,8 @@ const pickupFromWarehouse = async (req, res, next) => {
       notes: `Keluar dari gudang untuk pengiriman #${delivery.id}`,
     }));
     await StockMovement.bulkCreate(stockMovements, { transaction: t });
+
+    await updateOrderStatus(delivery.order_id, 'Dikirim', req.user.id, `Driver dalam perjalanan.`, t);
 
     delivery.status = 'Dalam Perjalanan';
     delivery.dispatch_time = new Date();
@@ -157,9 +176,13 @@ const completeAtCustomer = async (req, res, next) => {
       transaction: t,
     });
     const cylinderIds = assignments.map((a) => a.cylinder_id);
+    const assignmentIds = assignments.map((a) => a.id);
 
+    if (assignmentIds.length > 0) {
+      await OrderItemAssignment.update({ status: 'Diterima Pelanggan' }, { where: { id: { [Op.in]: assignmentIds } }, transaction: t });
+    }
     const newCylinderStatus = order.order_type === 'Sewa' ? 'Di Customer - Sewa' : 'Di Customer - Beli';
-    await Cylinder.update({ status: newCylinderStatus, customer_id: customer_id, warehouse_id: null }, { where: { id: { [Op.in]: cylinderIds } }, transaction: t });
+    await Cylinder.update({ status: newCylinderStatus, customer_id: customer_id, warehouse_id: null, notes: 'Tabung berhasil diserahkan ke customer' }, { where: { id: { [Op.in]: cylinderIds } }, transaction: t });
 
     const stockMovements = cylinderIds.map((cylinder_id) => ({
       cylinder_id,
@@ -171,7 +194,16 @@ const completeAtCustomer = async (req, res, next) => {
     }));
     await StockMovement.bulkCreate(stockMovements, { transaction: t });
 
-    order.status = 'Selesai';
+    const rentalItems = await OrderItem.findAll({ where: { order_id: order.id, is_rental: true }, transaction: t });
+    if (rentalItems.length > 0) {
+      const startDate = new Date();
+      const endDate = new Date();
+      endDate.setDate(startDate.getDate() + 30);
+      await OrderItem.update({ rental_start_date: startDate, rental_end_date: endDate }, { where: { id: { [Op.in]: rentalItems.map((i) => i.id) } }, transaction: t });
+    }
+
+    await updateOrderStatus(order.id, 'Selesai', req.user.id, `Diserahkan oleh driver. Catatan: ${notes_driver || ''}`, t);
+
     await order.save({ transaction: t });
 
     delivery.status = 'Selesai';
@@ -180,7 +212,7 @@ const completeAtCustomer = async (req, res, next) => {
     await delivery.save({ transaction: t });
 
     await t.commit();
-    res.status(200).json({ message: 'Delivery completed successfully.', delivery });
+    res.status(200).json({ message: 'Delivery completed successfully.', success: true });
   } catch (error) {
     if (t.finished !== 'commit') await t.rollback();
     next(error);

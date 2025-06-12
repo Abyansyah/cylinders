@@ -88,7 +88,6 @@ module.exports = (sequelize, DataTypes) => {
               [
                 'Di Gudang - Kosong',
                 'Di Gudang - Terisi',
-                'Dipinjam Pelanggan',
                 'Dialokasikan Untuk Order',
                 'Siap Kirim',
                 'Dalam Pengiriman',

@@ -36,7 +36,7 @@ module.exports = {
       },
       warehouse_id: {
         type: Sequelize.INTEGER,
-        allowNull: false,
+        allowNull: true,
         references: {
           model: 'warehouses',
           key: 'id',

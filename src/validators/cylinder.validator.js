@@ -2,13 +2,23 @@ const { body, param } = require('express-validator');
 const { Cylinder, User } = require('../models');
 const { Op } = require('sequelize');
 
-const cylinderStatuses = ['Di Gudang - Kosong', 'Di Gudang - Terisi', 'Dipinjam Pelanggan', 'Perlu Inspeksi', 'Rusak', 'Hilang'];
+const cylinderStatuses = [
+  'Di Gudang - Kosong',
+  'Di Gudang - Terisi',
+  'Dialokasikan Untuk Order',
+  'Siap Kirim',
+  'Dalam Pengiriman',
+  'Di Customer - Sewa',
+  'Di Customer - Beli',
+  'Dalam Perjalanan Kembali ke Gudang',
+  'Perlu Inspeksi',
+  'Rusak',
+  'Tidak Aktif',
+];
 const movementTypes = ['TERIMA_BARU', 'ISI_ULANG', 'PINDAH_GUDANG', 'KELUAR_PELANGGAN', 'KEMBALI_PELANGGAN', 'UPDATE_STATUS'];
 
 const createCylinderValidation = [
-  body('barcode_ids')
-    .isArray({ min: 1, max: 50 })
-    .withMessage('barcode_ids must be a non-empty array with 1 to 50 items.'),
+  body('barcode_ids').isArray({ min: 1, max: 50 }).withMessage('barcode_ids must be a non-empty array with 1 to 50 items.'),
 
   body('barcode_ids.*')
     .trim()

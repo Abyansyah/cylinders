@@ -8,7 +8,6 @@ module.exports = {
       { role_name: 'Admin', createdAt: new Date(), updatedAt: new Date() },
       { role_name: 'Sales', createdAt: new Date(), updatedAt: new Date() },
       { role_name: 'Petugas Gudang', createdAt: new Date(), updatedAt: new Date() },
-      { role_name: 'Distributor', createdAt: new Date(), updatedAt: new Date() },
       { role_name: 'Driver', createdAt: new Date(), updatedAt: new Date() },
       { role_name: 'Customer', createdAt: new Date(), updatedAt: new Date() },
     ];
@@ -31,7 +30,7 @@ module.exports = {
     await queryInterface.bulkDelete(
       'roles',
       {
-        role_name: ['Super Admin', 'Admin', 'Sales', 'Petugas Gudang', 'Distributor', 'Driver', 'Customer'],
+        role_name: ['Super Admin', 'Admin', 'Sales', 'Petugas Gudang', 'Driver', 'Customer'],
       },
       {}
     );

@@ -171,6 +171,17 @@ const receiveReturnedCylinders = async (req, res, next) => {
       returnedCylinderRecord.warehouse_received_time = new Date();
       await returnedCylinderRecord.save({ transaction: t });
 
+      const lastAssignment = await OrderItemAssignment.findOne({
+        where: { cylinder_id: cylinder.id },
+        order: [['createdAt', 'DESC']], 
+        transaction: t,
+      });
+
+       if (lastAssignment && ['Dikirim', 'Diterima Pelanggan'].includes(lastAssignment.status)) {
+          lastAssignment.status = 'Dikembalikan Gudang';
+          await lastAssignment.save({ transaction: t });
+      }
+
       stockMovementsToCreate.push({
         cylinder_id: cylinder.id,
         user_id: userId,

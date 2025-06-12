@@ -28,6 +28,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'order_id',
         as: 'delivery',
       });
+      Order.hasMany(models.OrderStatusHistory, {
+        foreignKey: 'order_id',
+        as: 'history',
+      });
     }
   }
   Order.init(
@@ -86,7 +90,7 @@ module.exports = (sequelize, DataTypes) => {
         validate: {
           notNull: { msg: 'Order status cannot be null.' },
           isIn: {
-            args: [['Baru', 'Dikonfirmasi Sales', 'Dibatalkan Sales', 'Disiapkan Gudang', 'Dalam Proses Pengiriman', 'Siap Kirim', 'Dikirim', 'Selesai', 'Dibatalkan Sistem']],
+            args: [['Baru', 'Dikonfirmasi Sales', 'Dibatalkan Sales', 'Disiapkan Gudang', 'Dalam Proses Pengiriman', 'Siap Kirim', 'Menugaskan Driver', 'Dikirim', 'Selesai', 'Dibatalkan Sistem']],
             msg: 'Invalid order status.',
           },
         },
@@ -101,10 +105,10 @@ module.exports = (sequelize, DataTypes) => {
       total_amount: {
         type: DataTypes.DECIMAL(15, 2),
         allowNull: true,
-        validate: {
-          isDecimal: { msg: 'Total amount must be a decimal.' },
-          min: { args: [0], msg: 'Total amount cannot be negative.' },
-        },
+        // validate: {
+        //   isDecimal: { msg: 'Total amount must be a decimal.' },
+        //   min: { args: [0], msg: 'Total amount cannot be negative.' },
+        // },
       },
       notes_customer: {
         type: DataTypes.TEXT,

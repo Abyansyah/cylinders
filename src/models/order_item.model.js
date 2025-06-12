@@ -8,13 +8,9 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'order_id',
         as: 'order',
       });
-      OrderItem.belongsTo(models.CylinderProperty, {
-        foreignKey: 'cylinder_properties_id',
-        as: 'cylinderProperty',
-      });
-      OrderItem.belongsTo(models.GasType, {
-        foreignKey: 'gas_type_id',
-        as: 'gasType',
+      OrderItem.belongsTo(models.Product, {
+        foreignKey: 'product_id',
+        as: 'product',
       });
       OrderItem.hasMany(models.OrderItemAssignment, {
         foreignKey: 'order_item_id',
@@ -39,15 +35,10 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         references: { model: 'orders', key: 'id' },
       },
-      cylinder_properties_id: {
+      product_id: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        references: { model: 'cylinder_properties', key: 'id' },
-      },
-      gas_type_id: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        references: { model: 'gas_types', key: 'id' },
+        references: { model: 'products', key: 'id' },
       },
       quantity: {
         type: DataTypes.INTEGER,
@@ -58,23 +49,27 @@ module.exports = (sequelize, DataTypes) => {
           min: { args: [1], msg: 'Quantity must be at least 1.' },
         },
       },
+      unit: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
+      },
       unit_price: {
         type: DataTypes.DECIMAL(12, 2),
-        allowNull: false,
-        validate: {
-          notNull: { msg: 'Unit price cannot be null.' },
-          isDecimal: { msg: 'Unit price must be a decimal.' },
-          min: { args: [0], msg: 'Unit price cannot be negative.' },
-        },
+        allowNull: true,
+        // validate: {
+        //   notNull: { msg: 'Unit price cannot be null.' },
+        //   isDecimal: { msg: 'Unit price must be a decimal.' },
+        //   min: { args: [0], msg: 'Unit price cannot be negative.' },
+        // },
       },
       sub_total: {
         type: DataTypes.DECIMAL(15, 2),
-        allowNull: false,
-        validate: {
-          notNull: { msg: 'Subtotal cannot be null.' },
-          isDecimal: { msg: 'Subtotal must be a decimal.' },
-          min: { args: [0], msg: 'Subtotal cannot be negative.' },
-        },
+        allowNull: true,
+        // validate: {
+        //   notNull: { msg: 'Subtotal cannot be null.' },
+        //   isDecimal: { msg: 'Subtotal must be a decimal.' },
+        //   min: { args: [0], msg: 'Subtotal cannot be negative.' },
+        // },
       },
       is_rental: {
         type: DataTypes.BOOLEAN,
@@ -122,16 +117,6 @@ module.exports = (sequelize, DataTypes) => {
         beforeValidate: (orderItem) => {
           if (orderItem.quantity && orderItem.unit_price) {
             orderItem.sub_total = orderItem.quantity * orderItem.unit_price;
-          }
-          if (orderItem.is_rental && orderItem.rental_start_date && orderItem.rental_end_date) {
-            const start = new Date(orderItem.rental_start_date);
-            const end = new Date(orderItem.rental_end_date);
-            const diffTime = Math.abs(end - start);
-            orderItem.rental_duration_days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          } else if (!orderItem.is_rental) {
-            orderItem.rental_start_date = null;
-            orderItem.rental_end_date = null;
-            orderItem.rental_duration_days = null;
           }
         },
       },

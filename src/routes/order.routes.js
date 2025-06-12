@@ -11,6 +11,7 @@ const {
   reassignWarehouseValidation,
   validateCylindersForOrderItemValidation,
   assignAllCylindersToOrderValidation,
+  cancelOrderValidation,
 } = require('../validators/order.validator');
 const { handleValidationErrors } = require('../middlewares/validator.middleware');
 const { param } = require('express-validator');
@@ -28,7 +29,7 @@ router.get('/', authenticateJWT, authorizePermission('order:view_all'), getOrder
 router.get('/:id', authenticateJWT, authorizePermission('order:view_detail'), [param('id').isInt({ gt: 0 })], handleValidationErrors, orderController.getOrderById);
 
 // Sales/Admin mengubah status order
-router.put('/:id/status', authenticateJWT, authorizePermission('order:update_status'), updateOrderStatusValidation, handleValidationErrors, orderController.updateOrderStatus);
+router.put('/:id/status', authenticateJWT, authorizePermission('order:update_status'), updateOrderStatusValidation, handleValidationErrors, orderController.updateOrderStatuses);
 
 // --- Warehouse Operations ---
 // Petugas Gudang mendapatkan daftar order yang perlu disiapkan
@@ -61,6 +62,15 @@ router.post(
   assignAllCylindersToOrderValidation,
   handleValidationErrors,
   orderController.assignAllCylindersToOrder
+);
+
+router.put(
+  '/:id/cancel',
+  authenticateJWT,
+  authorizePermission('order:cancel'), 
+  cancelOrderValidation,
+  handleValidationErrors,
+  orderController.cancelOrder
 );
 
 module.exports = router;

@@ -1,0 +1,78 @@
+'use strict';
+
+/** @type {import('sequelize-cli').Migration} */
+module.exports = {
+  async up(queryInterface, Sequelize) {
+    const permissions = [
+      { name: 'user:create', description: 'Can create new users' },
+      { name: 'user:view', description: 'Can view user details' },
+      { name: 'user:view_all', description: 'Can view all users' },
+      { name: 'user:update', description: 'Can update user details' },
+      { name: 'user:delete', description: 'Can delete users' },
+      { name: 'user:manage_roles', description: 'Can assign/revoke roles to users' },
+      { name: 'role:create', description: 'Can create new roles' },
+      { name: 'role:view', description: 'Can view role details' },
+      { name: 'role:view_all', description: 'Can view all roles' },
+      { name: 'role:update', description: 'Can update roles' },
+      { name: 'role:delete', description: 'Can delete roles' },
+      { name: 'permission:create', description: 'Can create new permissions' },
+      { name: 'permission:view', description: 'Can view permission details' },
+      { name: 'permission:view_all', description: 'Can view all permissions' },
+      { name: 'permission:update', description: 'Can update permissions' },
+      { name: 'permission:delete', description: 'Can delete permissions' },
+      { name: 'warehouse:create', description: 'Can create warehouses' },
+      { name: 'warehouse:view', description: 'Can view warehouse details' },
+      { name: 'warehouse:view_all', description: 'Can view all warehouses' },
+      { name: 'warehouse:update', description: 'Can update warehouse details' },
+      { name: 'warehouse:delete', description: 'Can delete warehouses' },
+      { name: 'gastype:manage', description: 'Can manage gas types (CRUD)' },
+      { name: 'cylinderproperty:manage', description: 'Can manage cylinder properties (CRUD)' },
+      { name: 'cylinder:create', description: 'Can register new cylinders' },
+      { name: 'cylinder:view', description: 'Can view individual cylinder details' },
+      { name: 'cylinder:view_all', description: 'Can view list of all cylinders (with filters)' },
+      { name: 'cylinder:update_status', description: 'Can update cylinder fill status and related info' },
+      { name: 'cylinder:update_general', description: 'Can update general cylinder information' },
+      { name: 'cylinder:delete', description: 'Can delete cylinders (use with caution)' },
+      { name: 'cylinder:view_summary', description: 'Can view cylinder stock summaries' },
+      { name: 'stockmovement:view_all', description: 'Can view stock movement summaries' },
+      { name: 'stockmovement:view', description: 'Can view stock movement summaries' },
+      { name: 'cylinder:create_bulk', description: 'Can view stock movement summaries' },
+      { name: 'cylinder:update_status_bulk', description: 'Can view stock movement summaries' },
+      { name: 'customer:create', description: 'Sales can create new customers' },
+      { name: 'customer:view_all', description: 'Sales/Admin can view all customers' },
+      { name: 'customer:view_own', description: 'Sales can view their created customers' },
+      { name: 'customer:view', description: 'Sales/Admin can view a specific customer' },
+      { name: 'customer:update', description: 'Sales/Admin can update customer data' },
+      { name: 'customer:delete', description: 'Can delete customers and their associated user accounts' },
+      { name: 'order:create', description: 'Sales can create new orders' },
+      { name: 'order:view_all', description: 'Admin can view all orders' },
+      { name: 'order:view_own', description: 'Sales can view their own orders' },
+      { name: 'order:view_detail', description: 'Sales/Admin/Warehouse Staff can view order details' },
+      { name: 'order:update_status', description: 'Sales/Admin can update order status' },
+      { name: 'warehouse:view_orders_to_prepare', description: 'Warehouse staff can view orders to prepare' },
+      { name: 'warehouse:recommend_cylinders', description: 'Warehouse staff can get cylinder recommendations for order items' },
+      { name: 'warehouse:assign_cylinder_to_order_item', description: 'Warehouse staff can assign cylinders to order items' },
+      { name: 'warehouse:mark_order_prepared', description: 'Warehouse staff can mark an order as prepared' },
+      { name: 'order:reassign_warehouse', description: 'Warehouse staff' },
+      { name: 'warehouse:assign_all_cylinders_to_order', description: 'Assign all cylinders for an entire order in one go' },
+      { name: 'delivery:view_ready', description: 'Can view orders ready for delivery' },
+      { name: 'delivery:create', description: 'Can create and assign a delivery' },
+      { name: 'delivery:view_own_active', description: 'Driver can view their active deliveries' },
+      { name: 'delivery:update_pickup', description: 'Driver can confirm pickup from warehouse' },
+      { name: 'delivery:update_complete', description: 'Driver can confirm completion at customer' },
+      { name: 'cylinder:return_pickup', description: 'Driver can pickup empty cylinders from customer' },
+      { name: 'warehouse:view_incoming_returns', description: 'Warehouse staff can see incoming cylinder returns' },
+      { name: 'warehouse:receive_returns', description: 'Warehouse staff can confirm receipt of returned cylinders' },
+      { name: 'report:view_cylinder_history', description: 'Can view the history of a specific cylinder' },
+      // new permissions
+      { name: 'product:manage', description: 'Can create, view, update, and delete products' },
+      { name: 'order:cancel', description: 'Can cancel an order' },
+    ].map((p) => ({ ...p, createdAt: new Date(), updatedAt: new Date() }));
+
+    await queryInterface.bulkInsert('permissions', permissions, {});
+  },
+
+  async down(queryInterface, Sequelize) {
+    await queryInterface.bulkDelete('permissions', null, {});
+  },
+};
