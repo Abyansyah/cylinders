@@ -74,9 +74,7 @@ const getAllUsers = async (req, res, next) => {
 
     let mainWhereClause = {};
     if (search) {
-      mainWhereClause = {
-        [Op.or]: [{ name: { [Op.iLike]: `%${search}%` } }, { email: { [Op.iLike]: `%${search}%` } }, { username: { [Op.iLike]: `%${search}%` } }],
-      };
+      mainWhereClause[Op.or] = [{ name: { [Op.iLike]: `%${search}%` } }, { email: { [Op.iLike]: `%${search}%` } }, { username: { [Op.iLike]: `%${search}%` } }];
     }
 
     if (role_id) {
@@ -96,8 +94,10 @@ const getAllUsers = async (req, res, next) => {
       const loggedInUserRole = req.user.role.role_name;
       const roleInclude = includeClauses.find((inc) => inc.as === 'role');
 
-      if (loggedInUserRole === 'Admin' || loggedInUserRole === 'Super Admin') {
+      if (loggedInUserRole === 'Super Admin') {
         roleInclude.where = { role_name: { [Op.ne]: 'Super Admin' } };
+      } else if (loggedInUserRole === 'Admin') {
+        roleInclude.where = { role_name: { [Op.notIn]: ['Super Admin', 'Admin'] } };
       } else if (loggedInUserRole === 'Sales') {
         roleInclude.where = { role_name: 'Customer' };
       }
@@ -139,11 +139,18 @@ const getUserById = async (req, res, next) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    if (req.user.id === parseInt(id, 10)) {
+      return res.status(200).json(user);
+    }
+
     const loggedInUserRole = req.user?.role?.role_name;
     const targetUserRole = user.role?.role_name;
 
-    if (loggedInUserRole === 'Admin' && targetUserRole === 'Super Admin') {
-      return res.status(403).json({ message: 'Forbidden: Cannot access Super Admin profile.' });
+    if (loggedInUserRole === 'Super Admin' && targetUserRole === 'Super Admin') {
+      return res.status(403).json({ message: 'Forbidden: Super Admin cannot view another Super Admin profile.' });
+    }
+    if (loggedInUserRole === 'Admin' && (targetUserRole === 'Admin' || targetUserRole === 'Super Admin')) {
+      return res.status(403).json({ message: 'Forbidden: Admin cannot view another Admin or Super Admin profile.' });
     }
     if (loggedInUserRole === 'Sales' && targetUserRole !== 'Customer') {
       return res.status(403).json({ message: 'Forbidden: Sales can only access Customer profiles.' });
