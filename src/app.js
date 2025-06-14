@@ -17,6 +17,10 @@ app.use(passport.initialize());
 
 app.use('/api/v1', allRoutes);
 
+app.get('/', (req, res) => {
+  res.send('PPP');
+});
+
 app.use((err, req, res, next) => {
   console.error('Global Error Handler:', err.stack);
   if (res.headersSent) {
