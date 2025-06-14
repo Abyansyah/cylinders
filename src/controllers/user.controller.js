@@ -67,7 +67,7 @@ const createUser = async (req, res, next) => {
 
 const getAllUsers = async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, search = '' } = req.query;
+    const { page = 1, limit = 10, search = '', role_id, is_active } = req.query;
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
     const offset = (pageNum - 1) * limitNum;
@@ -77,6 +77,14 @@ const getAllUsers = async (req, res, next) => {
       mainWhereClause = {
         [Op.or]: [{ name: { [Op.iLike]: `%${search}%` } }, { email: { [Op.iLike]: `%${search}%` } }, { username: { [Op.iLike]: `%${search}%` } }],
       };
+    }
+
+    if (role_id) {
+      mainWhereClause.role_id = parseInt(role_id, 10);
+    }
+
+    if (is_active !== undefined) {
+      mainWhereClause.is_active = is_active === 'true';
     }
 
     const includeClauses = [
