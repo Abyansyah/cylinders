@@ -27,7 +27,7 @@ const getAllRoles = async (req, res, next) => {
 
     const whereClause = {
       role_name: {
-        [Op.ne]: 'Admin',
+        [Op.ne]: 'Super Admin',
       },
     };
     if (search) {
