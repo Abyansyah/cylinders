@@ -96,7 +96,7 @@ const getAllUsers = async (req, res, next) => {
       const loggedInUserRole = req.user.role.role_name;
       const roleInclude = includeClauses.find((inc) => inc.as === 'role');
 
-      if (loggedInUserRole === 'Admin') {
+      if (loggedInUserRole === 'Admin' || loggedInUserRole === 'Super Admin') {
         roleInclude.where = { role_name: { [Op.ne]: 'Super Admin' } };
       } else if (loggedInUserRole === 'Sales') {
         roleInclude.where = { role_name: 'Customer' };
