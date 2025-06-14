@@ -14,6 +14,8 @@ module.exports = {
     database: process.env.DB_NAME_TEST,
     host: process.env.DB_HOST_TEST,
     dialect: 'postgres',
+    dialectModule: require('pg'),
+    logging: false,
   },
   production: {
     username: process.env.DB_USERNAME_PROD,
