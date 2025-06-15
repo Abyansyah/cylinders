@@ -63,6 +63,28 @@ const getAllRoles = async (req, res, next) => {
   }
 };
 
+const getRolesForSelection = async (req, res, next) => {
+  try {
+    let whereClause = {};
+    const loggedInUserRole = req.user.role.role_name;
+
+    if (loggedInUserRole === 'Super Admin') {
+      whereClause.role_name = { [Op.ne]: 'Super Admin' };
+    } else if (loggedInUserRole === 'Admin') {
+      whereClause.role_name = { [Op.notIn]: ['Super Admin', 'Admin'] };
+    }
+
+    const roles = await Role.findAll({
+      attributes: ['id', 'role_name'],
+      where: whereClause,
+      order: [['role_name', 'ASC']],
+    });
+    res.status(200).json(roles);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getRoleById = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -292,4 +314,5 @@ module.exports = {
   revokePermissionFromRole,
   getPermissionsForRole,
   syncPermissionsForRole,
+  getRolesForSelection,
 };
