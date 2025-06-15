@@ -7,6 +7,8 @@ const { param, body } = require('express-validator');
 
 const router = express.Router();
 
+router.get('/selection', authenticateJWT, roleController.getRolesForSelection);
+
 router.post('/', authenticateJWT, authorizePermission('role:create'), createRoleValidation, handleValidationErrors, roleController.createRole);
 
 router.get('/', authenticateJWT, authorizePermission('role:view_all'), roleController.getAllRoles);
