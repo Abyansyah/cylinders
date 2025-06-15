@@ -79,7 +79,7 @@ const getRolesForSelection = async (req, res, next) => {
       where: whereClause,
       order: [['role_name', 'ASC']],
     });
-    res.status(200).json(roles);
+    res.status(200).json({ data: roles, message: 'Roles retrieved successfully' });
   } catch (error) {
     next(error);
   }
