@@ -109,7 +109,7 @@ const getAllUsers = async (req, res, next) => {
       where: mainWhereClause,
       limit: limitNum,
       offset: offset,
-      order: [['name', 'ASC']],
+      order: [['updatedAt', 'DESC']],
       distinct: true,
     });
 
